@@ -311,7 +311,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         DropdownMenuItem(value: "L", child: Text("Laki-Laki")),
         DropdownMenuItem(value: "P", child: Text("Perempuan")),
       ],
-      value: selectedGender,
+      initialValue: selectedGender,
       onChanged: (v) => setState(() => selectedGender = v),
       validator: (v) => v == null ? "Pilih gender" : null,
     );
@@ -325,7 +325,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
       ),
       hint: const Text("Pilih Batch"),
-      value: selectedBatch,
+      initialValue: selectedBatch,
       items: batchList
           .map(
             (e) => DropdownMenuItem(
@@ -347,7 +347,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
       ),
       hint: const Text("Pilih Training"),
-      value: selectedTraining,
+      initialValue: selectedTraining,
       items: trainingList
           .map((e) => DropdownMenuItem(value: e, child: Text(e.title ?? '-')))
           .toList(),

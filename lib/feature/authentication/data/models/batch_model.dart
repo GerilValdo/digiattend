@@ -1,7 +1,3 @@
-// To parse this JSON data, do
-//
-//     final batchModel = batchModelFromJson(jsonString);
-
 import 'dart:convert';
 
 BatchModel batchModelFromJson(String str) => BatchModel.fromJson(json.decode(str));

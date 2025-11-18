@@ -1,7 +1,3 @@
-// To parse this JSON data, do
-//
-//     final trainingModel = trainingModelFromJson(jsonString);
-
 import 'dart:convert';
 
 TrainingModel trainingModelFromJson(String str) => TrainingModel.fromJson(json.decode(str));
