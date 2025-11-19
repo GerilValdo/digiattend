@@ -36,4 +36,37 @@ class AuthLocalStorage {
     await prefs.remove(keyToken);
     await prefs.remove(keyUser);
   }
+
+    /// Update name only
+  static Future<void> updateUserName(String name) async {
+    final prefs = await SharedPreferences.getInstance();
+    final data = prefs.getString(keyUser);
+
+    if (data == null) return;
+
+    final map = jsonDecode(data);
+    map["name"] = name;
+
+    await prefs.setString(keyUser, jsonEncode(map));
+  }
+
+  /// Update profile photo only
+  static Future<void> updateUserPhoto(String? path) async {
+    final prefs = await SharedPreferences.getInstance();
+    final data = prefs.getString(keyUser);
+
+    if (data == null) return;
+
+    final map = jsonDecode(data);
+    map["profile_photo"] = path;
+
+    await prefs.setString(keyUser, jsonEncode(map));
+  }
+
+  /// Update full user data with UserModel copy
+  static Future<void> updateUserModel(Map<String, dynamic> newUser) async {
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setString(keyUser, jsonEncode(newUser));
+}
+
 }

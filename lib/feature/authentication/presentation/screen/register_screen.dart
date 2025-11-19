@@ -25,16 +25,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final passwordC = TextEditingController();
   final confirmPassC = TextEditingController();
 
-  // Dropdown values (note types)
+  // Dropdown values
   String? selectedGender;
   BatchData? selectedBatch;
   TrainingData? selectedTraining;
 
-  // Data list (note types)
+  // Data list
   List<BatchData> batchList = [];
   List<TrainingData> trainingList = [];
 
-  // Base64 photo
   String base64Photo = "";
 
   bool obscure = true;
@@ -48,18 +47,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   Future loadDropdownData() async {
     try {
-      final batches =
-          await BatchAPI.getBatchList(); // now returns List<BatchData>
-      final trainings =
-          await TrainingAPI.getTrainingList(); // returns List<TrainingData>
+      final batches = await BatchAPI.getBatchList();
+      final trainings = await TrainingAPI.getTrainingList();
 
       setState(() {
         batchList = batches;
         trainingList = trainings;
       });
     } catch (e) {
-      // show friendly error (optional)
-      debugPrint("Error load dropdown: $e");
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text("Gagal ambil data: $e")));
@@ -100,8 +95,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
         password: passwordC.text.trim(),
         jenisKelamin: selectedGender!,
         profilePhoto: base64Photo,
-        batchId: selectedBatch!.id!, // BatchData.id
-        trainingId: selectedTraining!.id!, // TrainingData.id
+        batchId: selectedBatch!.id!,
+        trainingId: selectedTraining!.id!,
       );
 
       if (success) {
@@ -125,7 +120,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
       backgroundColor: const Color(0xFF2E3349),
       body: Stack(
         children: [
-          // yellow background
           Positioned(
             left: 0,
             right: 0,
@@ -224,7 +218,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  // FIELD HELPERS (sama seperti sebelumnya)
+  // ---- FIELD HELPERS -----
+
+  InputDecoration _decoration() {
+    return InputDecoration(
+      filled: true,
+      fillColor: const Color(0xFFE5E5E5),
+      isDense: true,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+      errorMaxLines: 2,
+    );
+  }
+
   Widget _buildField(
     String label,
     TextEditingController c, {
@@ -241,11 +247,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               validator ??
               (v) =>
                   v == null || v.isEmpty ? "$label tidak boleh kosong" : null,
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: const Color(0xFFE5E5E5),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-          ),
+          decoration: _decoration(),
         ),
       ],
     );
@@ -261,14 +263,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
           controller: passwordC,
           obscureText: obscure,
           validator: passwordValidator,
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: const Color(0xFFE5E5E5),
+          decoration: _decoration().copyWith(
             suffixIcon: IconButton(
               icon: Icon(obscure ? Icons.visibility_off : Icons.visibility),
               onPressed: () => setState(() => obscure = !obscure),
             ),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
           ),
         ),
       ],
@@ -289,11 +288,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             if (v != passwordC.text) return "Password tidak sama!";
             return null;
           },
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: const Color(0xFFE5E5E5),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-          ),
+          decoration: _decoration(),
         ),
       ],
     );
@@ -301,17 +296,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   Widget _buildGenderDropdown() {
     return DropdownButtonFormField<String>(
-      decoration: InputDecoration(
-        filled: true,
-        fillColor: const Color(0xFFE5E5E5),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-      ),
+      decoration: _decoration(),
       hint: const Text("Pilih Jenis Kelamin"),
+      initialValue: selectedGender,
       items: const [
         DropdownMenuItem(value: "L", child: Text("Laki-Laki")),
         DropdownMenuItem(value: "P", child: Text("Perempuan")),
       ],
-      initialValue: selectedGender,
       onChanged: (v) => setState(() => selectedGender = v),
       validator: (v) => v == null ? "Pilih gender" : null,
     );
@@ -319,11 +310,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   Widget _buildBatchDropdown() {
     return DropdownButtonFormField<BatchData>(
-      decoration: InputDecoration(
-        filled: true,
-        fillColor: const Color(0xFFE5E5E5),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-      ),
+      decoration: _decoration(),
       hint: const Text("Pilih Batch"),
       initialValue: selectedBatch,
       items: batchList
@@ -341,15 +328,23 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   Widget _buildTrainingDropdown() {
     return DropdownButtonFormField<TrainingData>(
-      decoration: InputDecoration(
-        filled: true,
-        fillColor: const Color(0xFFE5E5E5),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-      ),
+      decoration: _decoration(),
       hint: const Text("Pilih Training"),
-      initialValue: selectedTraining,
+      value: selectedTraining,
+      isExpanded: true, // <-- penting untuk menghindari overflow horizontal
+      icon: const Icon(Icons.arrow_drop_down),
       items: trainingList
-          .map((e) => DropdownMenuItem(value: e, child: Text(e.title ?? '-')))
+          .map(
+            (e) => DropdownMenuItem(
+              value: e,
+              child: Text(
+                e.title ?? "-",
+                maxLines: 1,
+                overflow: TextOverflow
+                    .ellipsis, // <-- potong teks yang terlalu panjang
+              ),
+            ),
+          )
           .toList(),
       onChanged: (v) => setState(() => selectedTraining = v),
       validator: (v) => v == null ? "Pilih training" : null,

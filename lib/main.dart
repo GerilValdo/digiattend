@@ -1,9 +1,13 @@
 // import 'package:digiattend/core/constants/app_color.dart';
 import 'package:digiattend/feature/authentication/presentation/screen/login_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/date_symbol_data_local.dart';
 // import 'package:google_fonts/google_fonts.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await initializeDateFormatting('id_ID', null);
+
   runApp(const MyApp());
 }
 
