@@ -28,6 +28,12 @@ class _MapScreenState extends State<MapScreen> {
     _initGPS();
   }
 
+  @override
+  void dispose() {
+    super.dispose();
+    _controller?.dispose();
+  }
+
   // ========================= REVERSE GEOCODING =========================
   Future<String> getReadableAddress(double lat, double lng) async {
     try {

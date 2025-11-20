@@ -1,14 +1,17 @@
 import 'dart:io';
+import 'dart:convert';
+import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+
 import 'package:digiattend/core/constants/app_color.dart';
-import 'package:digiattend/core/constants/endpoint.dart';
 import 'package:digiattend/core/service/auth_local_storage.dart';
+import 'package:digiattend/core/utils/avatar_helper.dart';
+
 import 'package:digiattend/feature/authentication/data/models/user_model.dart';
 import 'package:digiattend/feature/authentication/data/models/training_model.dart';
 import 'package:digiattend/feature/authentication/data/service/auth_api.dart';
 import 'package:digiattend/feature/authentication/data/service/training_api.dart';
 import 'package:digiattend/feature/authentication/presentation/screen/login_screen.dart';
-import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -21,6 +24,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   UserModel? user;
   String trainingTitle = "";
   bool loading = true;
+  Key photoKey = UniqueKey();
 
   @override
   void initState() {
@@ -28,6 +32,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     loadUser();
   }
 
+  // =============================================================
+  // LOAD USER DATA
+  // =============================================================
   Future<void> loadUser() async {
     final json = await AuthLocalStorage.getUser();
     if (json == null) return;
@@ -47,7 +54,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     });
   }
 
-  // ========================= UPDATE NAME =========================
+  // =============================================================
+  // UPDATE NAME
+  // =============================================================
   Future<void> updateName() async {
     final controller = TextEditingController(text: user?.name);
 
@@ -59,56 +68,34 @@ class _ProfileScreenState extends State<ProfileScreen> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
-          title: Text("Ubah Nama", style: TextStyle(color: AppColor.textColor)),
+          title: const Text("Ubah Nama"),
           content: TextField(
             controller: controller,
-            decoration: InputDecoration(
-              labelText: "Nama baru",
-              labelStyle: TextStyle(color: AppColor.subtitleText),
-              focusedBorder: OutlineInputBorder(
-                borderSide: BorderSide(color: AppColor.primary),
-              ),
-              border: OutlineInputBorder(
-                borderSide: BorderSide(color: AppColor.border),
-              ),
-            ),
+            decoration: const InputDecoration(labelText: "Nama baru"),
           ),
           actions: [
             TextButton(
-              child: Text(
-                "Batal",
-                style: TextStyle(color: AppColor.subtitleText),
-              ),
               onPressed: () => Navigator.pop(context),
+              child: const Text("Batal"),
             ),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColor.primary,
-                foregroundColor: Colors.white,
-              ),
               onPressed: () async {
                 final newName = controller.text.trim();
                 if (newName.isEmpty) return;
 
                 try {
                   final updated = await AuthAPI.updateProfileName(newName);
-                  await AuthLocalStorage.updateUserModel(updated.toJson());
+
                   setState(() => user = updated);
 
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      backgroundColor: AppColor.success,
-                      content: const Text("Nama diperbarui"),
-                    ),
+                    const SnackBar(content: Text("Nama berhasil diperbarui")),
                   );
                 } catch (e) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      backgroundColor: AppColor.error,
-                      content: Text("Gagal update: $e"),
-                    ),
-                  );
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(SnackBar(content: Text("Gagal update: $e")));
                 }
               },
               child: const Text("Simpan"),
@@ -119,259 +106,246 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // ========================= UPDATE PHOTO =========================
-  Future<void> updatePhoto() async {
-    final picker = ImagePicker();
-    final img = await picker.pickImage(source: ImageSource.gallery);
+  // =============================================================
+  // UPDATE PHOTO
+  // =============================================================
+  Future<void> pickImage(ImageSource source) async {
+    final img = await ImagePicker().pickImage(source: source);
     if (img == null) return;
 
-    final file = File(img.path);
+    final bytes = await File(img.path).readAsBytes();
+    final base64 = base64Encode(bytes);
 
     try {
-      final updated = await AuthAPI.updateProfilePhoto(file);
-      await AuthLocalStorage.updateUserModel(updated.toJson());
-      setState(() => user = updated);
+      final updated = await AuthAPI.updateProfilePhoto(base64);
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          backgroundColor: AppColor.success,
-          content: const Text("Foto profil diperbarui"),
-        ),
-      );
+      setState(() {
+        user = updated;
+        photoKey = UniqueKey();
+      });
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Foto profil diperbarui")));
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          backgroundColor: AppColor.error,
-          content: Text("Gagal upload foto: $e"),
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Gagal upload: $e")));
     }
   }
 
-  // ========================= LOGOUT DIALOG =========================
-  Future<void> confirmLogout() async {
-    showDialog(
+  void showPhotoPicker() {
+    showModalBottomSheet(
       context: context,
-      barrierDismissible: false,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (_) {
-        return AlertDialog(
-          backgroundColor: AppColor.card,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: Text(
-            "Konfirmasi Logout",
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              color: AppColor.textColor,
-            ),
-          ),
-          content: Text(
-            "Apakah kamu yakin ingin keluar dari akun ini?",
-            style: TextStyle(color: AppColor.subtitleText),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text(
-                "Batal",
-                style: TextStyle(color: AppColor.subtitleText),
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.camera_alt),
+                title: const Text("Ambil dari Kamera"),
+                onTap: () {
+                  Navigator.pop(context);
+                  pickImage(ImageSource.camera);
+                },
               ),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                await AuthLocalStorage.clearUserData();
-                if (!mounted) return;
-
-                Navigator.pop(context);
-                Navigator.pushAndRemoveUntil(
-                  context,
-                  MaterialPageRoute(builder: (_) => const LoginScreen()),
-                  (_) => false,
-                );
-              },
-              style: ElevatedButton.styleFrom(backgroundColor: AppColor.danger),
-              child: const Text(
-                "Logout",
-                style: TextStyle(color: Colors.white),
+              ListTile(
+                leading: const Icon(Icons.photo),
+                title: const Text("Pilih dari Galeri"),
+                onTap: () {
+                  Navigator.pop(context);
+                  pickImage(ImageSource.gallery);
+                },
               ),
-            ),
-          ],
+              ListTile(
+                leading: const Icon(Icons.close, color: Colors.red),
+                title: const Text("Batal"),
+                onTap: () => Navigator.pop(context),
+              ),
+            ],
+          ),
         );
       },
     );
   }
 
-  // ========================= BUILD UI =========================
+  // =============================================================
+  // LOGOUT
+  // =============================================================
+  Future<void> logout() async {
+    await AuthLocalStorage.clearUserData();
+    if (!mounted) return;
+
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      (_) => false,
+    );
+  }
+
+  // =============================================================
+  // UI
+  // =============================================================
   @override
   Widget build(BuildContext context) {
     if (loading || user == null) {
-      return const Scaffold(
+      return Scaffold(
         backgroundColor: AppColor.background,
-        body: Center(child: CircularProgressIndicator(color: AppColor.primary)),
+        body: const Center(child: CircularProgressIndicator()),
       );
     }
 
-    final photoUrl =
-        (user!.profilePhoto != null && user!.profilePhoto!.trim().isNotEmpty)
-        ? "${Endpoint.baseUrl}/public/${user!.profilePhoto}"
-        : null;
-
-    final initials = user!.name.trim().isNotEmpty
-        ? user!.name.trim()[0].toUpperCase()
-        : "?";
+    final photoUrl = getFinalPhoto(user!.profilePhoto);
+    final initials = user!.name.isNotEmpty ? user!.name[0].toUpperCase() : "?";
 
     return Scaffold(
       backgroundColor: AppColor.background,
-      appBar: AppBar(
-        backgroundColor: AppColor.background,
-        elevation: 0,
-        title: Text(
-          "Profile",
-          style: TextStyle(
-            color: AppColor.textColor,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        iconTheme: IconThemeData(color: AppColor.textColor),
-      ),
-
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            // ================= AVATAR =================
-            GestureDetector(
-              onTap: updatePhoto,
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  CircleAvatar(
-                    radius: 65,
-                    backgroundColor: AppColor.primaryLight,
-                    backgroundImage: photoUrl != null
-                        ? NetworkImage(photoUrl)
-                        : null,
-                    child: photoUrl == null
-                        ? Text(
-                            initials,
-                            style: TextStyle(
-                              fontSize: 40,
-                              color: AppColor.primary,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          )
-                        : null,
-                  ),
-
-                  Positioned(
-                    bottom: -4,
-                    right: -4,
-                    child: Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: AppColor.primary,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.camera_alt,
-                        color: Colors.white,
-                        size: 18,
+      appBar: AppBar(title: const Text("Profile"), elevation: 0),
+      body: RefreshIndicator(
+        onRefresh: loadUser,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            children: [
+              // AVATAR
+              GestureDetector(
+                onTap: showPhotoPicker,
+                child: Stack(
+                  children: [
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 300),
+                      child: ClipOval(
+                        key: photoKey,
+                        child: Container(
+                          width: 130,
+                          height: 130,
+                          color: Colors.grey.shade200,
+                          child: (photoUrl != null)
+                              ? Image.network(
+                                  "$photoUrl?v=${DateTime.now().millisecondsSinceEpoch}",
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) {
+                                    return _avatarInitial(initials);
+                                  },
+                                )
+                              : _avatarInitial(initials),
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                    Positioned(
+                      bottom: 0,
+                      right: 4,
+                      child: CircleAvatar(
+                        radius: 18,
+                        backgroundColor: AppColor.primary,
+                        child: const Icon(
+                          Icons.camera_alt,
+                          color: Colors.white,
+                          size: 18,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
 
-            const SizedBox(height: 18),
+              const SizedBox(height: 20),
 
-            // ================= NAME =================
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  user!.name,
-                  style: TextStyle(
-                    color: AppColor.textColor,
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                  ),
+              Text(
+                user!.name,
+                style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
                 ),
-                const SizedBox(width: 6),
-                GestureDetector(
-                  onTap: updateName,
-                  child: Icon(Icons.edit, color: AppColor.primary),
+              ),
+              Text(user!.email, style: TextStyle(color: Colors.grey.shade600)),
+
+              const SizedBox(height: 30),
+
+              _detail(Icons.person, "Jenis Kelamin", user!.jenisKelamin),
+              _detail(Icons.group, "Batch", "Batch ${user!.batchKe}"),
+              _detail(Icons.school, "Training", trainingTitle),
+
+              const SizedBox(height: 20),
+
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: logout,
+                  child: const Text("Logout"),
                 ),
-              ],
-            ),
+              ),
 
-            const SizedBox(height: 4),
-            Text(user!.email, style: TextStyle(color: AppColor.subtitleText)),
+              const SizedBox(height: 30),
 
-            const SizedBox(height: 30),
-
-            // ================= DETAIL =================
-            detailItem(Icons.person, "Jenis Kelamin", user!.jenisKelamin),
-            detailItem(Icons.group, "Batch", "Batch ${user!.batchId}"),
-            detailItem(Icons.school, "Training", trainingTitle),
-
-            const SizedBox(height: 40),
-
-            // ================= LOGOUT BUTTON =================
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton(
-                onPressed: confirmLogout,
-                style: OutlinedButton.styleFrom(
-                  side: BorderSide(color: AppColor.error),
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                ),
+              Opacity(
+                opacity: 0.7,
                 child: Text(
-                  "Logout",
+                  "Created by Geril Valdo",
                   style: TextStyle(
-                    fontSize: 16,
-                    color: AppColor.error,
-                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                    color: AppColor.subtitleText,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: 0.3,
                   ),
                 ),
               ),
-            ),
-          ],
+
+              const SizedBox(height: 12),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget detailItem(IconData icon, String label, String value) {
+  // =============================================================
+  // Widgets
+  // =============================================================
+  Widget _avatarInitial(String initials) {
+    return Center(
+      child: Text(
+        initials,
+        style: TextStyle(
+          fontSize: 40,
+          color: AppColor.primary,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+  }
+
+  Widget _detail(IconData icon, String title, String value) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 22),
-      padding: const EdgeInsets.symmetric(vertical: 6),
+      margin: const EdgeInsets.only(bottom: 18),
       child: Row(
         children: [
           CircleAvatar(
-            radius: 20,
+            radius: 22,
             backgroundColor: AppColor.primaryLight,
-            child: Icon(icon, color: AppColor.primary, size: 20),
+            child: Icon(icon, color: AppColor.primary),
           ),
           const SizedBox(width: 16),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: TextStyle(color: AppColor.subtitleText, fontSize: 13),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                value,
-                style: TextStyle(
-                  color: AppColor.textColor,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: TextStyle(color: Colors.grey.shade600)),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),

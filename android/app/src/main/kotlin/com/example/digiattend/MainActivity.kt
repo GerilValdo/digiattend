@@ -1,4 +1,4 @@
-package com.example.digiattend
+package com.ppkd.digiattend
 
 import io.flutter.embedding.android.FlutterActivity
 

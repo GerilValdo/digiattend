@@ -1,17 +1,19 @@
 import 'dart:async';
-import 'package:digiattend/core/constants/app_color.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:shimmer/shimmer.dart';
 
-import 'package:digiattend/core/constants/endpoint.dart';
+import 'package:digiattend/core/constants/app_color.dart';
 import 'package:digiattend/core/service/auth_local_storage.dart';
+import 'package:digiattend/core/utils/avatar_helper.dart';
+
 import 'package:digiattend/feature/authentication/data/models/user_model.dart';
-import 'package:digiattend/feature/authentication/data/models/training_model.dart';
 import 'package:digiattend/feature/authentication/data/models/attendance_model.dart';
+import 'package:digiattend/feature/authentication/data/models/training_model.dart';
 import 'package:digiattend/feature/authentication/data/service/attendance_api.dart';
 import 'package:digiattend/feature/authentication/data/service/training_api.dart';
+
 import 'package:digiattend/feature/home/presentation/screen/map_screen.dart';
+import 'package:shimmer/shimmer.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -59,32 +61,23 @@ class _HomeScreenState extends State<HomeScreen> {
     ).showSnackBar(SnackBar(content: Text(text), backgroundColor: color));
   }
 
-  // Hitung durasi check-in → check-out (aman terhadap null / format salah)
   String _calcDuration(String? start, String? end) {
     if (start == null || end == null) return "-";
-    final sTrim = start.trim();
-    final eTrim = end.trim();
-
-    // Pastikan format minimal mengandung ":" agar tidak lempar exception saat parse
-    if (!sTrim.contains(":") || !eTrim.contains(":")) return "-";
 
     try {
       final fmt = DateFormat("HH:mm");
-      final s = fmt.parse(sTrim);
-      final e = fmt.parse(eTrim);
+      final s = fmt.parse(start.trim());
+      final e = fmt.parse(end.trim());
 
-      // Jika check-out berada di hari berikutnya, support juga
       Duration diff = e.difference(s);
       if (diff.isNegative) {
-        // asumsi check-out di hari berikutnya -> tambahkan 1 hari
         diff = e.add(const Duration(days: 1)).difference(s);
       }
 
-      final hours = diff.inHours.toString().padLeft(2, "0");
-      final minutes = (diff.inMinutes % 60).toString().padLeft(2, "0");
-
-      return "$hours:$minutes Jam";
-    } catch (e) {
+      final h = diff.inHours.toString().padLeft(2, "0");
+      final m = (diff.inMinutes % 60).toString().padLeft(2, "0");
+      return "$h:$m Jam";
+    } catch (_) {
       return "-";
     }
   }
@@ -94,12 +87,11 @@ class _HomeScreenState extends State<HomeScreen> {
     if (json == null) return;
 
     final model = UserModel.fromJson(json);
-
     final trainings = await TrainingAPI.getTrainingList();
 
     final matched = trainings.firstWhere(
       (e) => e.id == model.trainingId,
-      orElse: () => TrainingData(title: "Unknown Training"),
+      orElse: () => TrainingData(title: "Unknown"),
     );
 
     setState(() {
@@ -116,9 +108,9 @@ class _HomeScreenState extends State<HomeScreen> {
       final list = await AttendanceAPI.getHistory();
       history = list;
 
-      final todayString = DateFormat("yyyy-MM-dd").format(DateTime.now());
+      final todayStr = DateFormat("yyyy-MM-dd").format(DateTime.now());
       final today = history.firstWhere(
-        (x) => x.attendanceDate == todayString,
+        (x) => x.attendanceDate == todayStr,
         orElse: () => AttendanceData(attendanceDate: ""),
       );
 
@@ -136,10 +128,6 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {});
   }
 
-  // ======================================================================
-  // =============================== UI ==================================
-  // ======================================================================
-
   @override
   Widget build(BuildContext context) {
     if (user == null) {
@@ -149,6 +137,8 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
 
+    final photoUrl = getFinalPhoto(user!.profilePhoto);
+
     return Scaffold(
       backgroundColor: AppColor.background,
       body: SingleChildScrollView(
@@ -156,37 +146,28 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ===========================================================
-            // HEADER
-            // ===========================================================
             Row(
               children: [
                 CircleAvatar(
                   radius: 28,
                   backgroundColor: AppColor.primaryLight,
-                  backgroundImage:
-                      (user!.profilePhoto != null &&
-                          user!.profilePhoto!.isNotEmpty)
+                  backgroundImage: (photoUrl != null)
                       ? NetworkImage(
-                          "${Endpoint.baseUrl}/public/${user!.profilePhoto}",
+                          "$photoUrl?v=${DateTime.now().millisecondsSinceEpoch}",
                         )
                       : null,
-                  child:
-                      (user!.profilePhoto == null ||
-                          user!.profilePhoto!.isEmpty)
+                  child: (photoUrl == null)
                       ? Text(
-                          user!.name[0],
+                          user!.name[0].toUpperCase(),
                           style: const TextStyle(
                             fontSize: 20,
-                            color: AppColor.primaryDark,
                             fontWeight: FontWeight.bold,
+                            color: AppColor.primaryDark,
                           ),
                         )
                       : null,
                 ),
-
                 const SizedBox(width: 14),
-
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -200,7 +181,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                       Text(
-                        "Batch ${user!.batchId} • $trainingTitle",
+                        "Batch ${user!.batchKe} • $trainingTitle",
                         style: const TextStyle(
                           fontSize: 13,
                           color: AppColor.subtitleText,
@@ -209,23 +190,14 @@ class _HomeScreenState extends State<HomeScreen> {
                     ],
                   ),
                 ),
-
                 const Icon(Icons.qr_code, color: AppColor.primaryDark),
               ],
             ),
 
             const SizedBox(height: 24),
-
-            // ===========================================================
-            // LIVE ATTENDANCE
-            // ===========================================================
             _buildLiveAttendance(),
 
             const SizedBox(height: 24),
-
-            // ===========================================================
-            // STATISTIK
-            // ===========================================================
             const Text(
               "Absence Statistics",
               style: TextStyle(
@@ -234,23 +206,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 fontWeight: FontWeight.bold,
               ),
             ),
-
             const SizedBox(height: 12),
-
             _buildStatistics(),
 
             const SizedBox(height: 24),
-
-            // ===========================================================
-            // TODAY STATUS
-            // ===========================================================
             _buildTodayStatus(),
 
             const SizedBox(height: 24),
-
-            // ===========================================================
-            // HISTORY
-            // ===========================================================
             const Text(
               "Today's Attendance",
               style: TextStyle(
@@ -259,19 +221,29 @@ class _HomeScreenState extends State<HomeScreen> {
                 fontWeight: FontWeight.bold,
               ),
             ),
-
             const SizedBox(height: 12),
-
             _buildHistory(),
+
+            const SizedBox(height: 30),
+
+            Center(
+              child: Text(
+                "Created by Geril Valdo",
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppColor.subtitleText,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 10),
+            // ------------------------------------------------------------
           ],
         ),
       ),
     );
   }
-
-  // ======================================================================
-  // SEPARATED UI WIDGETS
-  // ======================================================================
 
   Widget _buildLiveAttendance() {
     return Container(
@@ -298,7 +270,6 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           const SizedBox(height: 10),
-
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 300),
             child: Text(
@@ -311,15 +282,12 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           ),
-
           const SizedBox(height: 6),
           Text(
             DateFormat("EEEE, dd MMM yyyy", "id_ID").format(now),
             style: const TextStyle(color: AppColor.subtitleText),
           ),
-
           const SizedBox(height: 20),
-
           Row(
             children: [
               Expanded(
@@ -330,7 +298,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           final res = await Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) => MapScreen(isCheckIn: true),
+                              builder: (_) => const MapScreen(isCheckIn: true),
                             ),
                           );
                           if (res == true) loadAttendance();
@@ -354,7 +322,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           final res = await Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) => MapScreen(isCheckIn: false),
+                              builder: (_) => const MapScreen(isCheckIn: false),
                             ),
                           );
                           if (res == true) loadAttendance();
@@ -375,8 +343,6 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
-
-  // ======================================================================
 
   Widget _buildStatistics() {
     return Container(
@@ -449,8 +415,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ======================================================================
-
   Widget _buildTodayStatus() {
     return Container(
       padding: const EdgeInsets.all(18),
@@ -474,6 +438,7 @@ class _HomeScreenState extends State<HomeScreen> {
               fontSize: 16,
             ),
           ),
+
           const SizedBox(height: 8),
 
           _statusLine("Check-in", checkInTime),
@@ -488,7 +453,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _statusLine(String label, String? value) {
     return Padding(
-      padding: const EdgeInsets.only(top: 6),
+      padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -505,10 +470,8 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ======================================================================
-
   Widget _buildHistory() {
-    if (loadingHistory) return shimmerHistory();
+    if (loadingHistory) return _shimmerHistory();
 
     if (history.isEmpty) {
       return Container(
@@ -580,8 +543,6 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Icon(Icons.access_time, color: color),
           ),
           const SizedBox(width: 16),
-
-          // TEXT
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -606,7 +567,6 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
           ),
-
           Text(
             timeText,
             style: const TextStyle(
@@ -619,9 +579,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ======================================================================
-
-  Widget shimmerHistory() {
+  Widget _shimmerHistory() {
     return Column(
       children: List.generate(4, (i) {
         return Container(

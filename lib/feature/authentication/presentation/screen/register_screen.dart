@@ -19,18 +19,15 @@ class RegisterScreen extends StatefulWidget {
 class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
 
-  // Controllers
   final nameC = TextEditingController();
   final emailC = TextEditingController();
   final passwordC = TextEditingController();
   final confirmPassC = TextEditingController();
 
-  // Dropdown values
   String? selectedGender;
   BatchData? selectedBatch;
   TrainingData? selectedTraining;
 
-  // Data list
   List<BatchData> batchList = [];
   List<TrainingData> trainingList = [];
 
@@ -61,7 +58,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
-  // IMAGE PICKER
   Future pickImage() async {
     final img = await ImagePicker().pickImage(source: ImageSource.gallery);
     if (img == null) return;
@@ -73,7 +69,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     });
   }
 
-  // REGISTER
   Future doRegister() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -135,6 +130,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
             ),
           ),
+
           SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 60),
             child: Column(
@@ -153,6 +149,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   style: TextStyle(color: Colors.white70),
                 ),
                 const SizedBox(height: 40),
+
                 Container(
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
@@ -176,7 +173,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         _buildBatchDropdown(),
                         const SizedBox(height: 14),
                         _buildTrainingDropdown(),
+
                         const SizedBox(height: 20),
+
                         Row(
                           children: [
                             ElevatedButton(
@@ -189,7 +188,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 : const Icon(Icons.check, color: Colors.green),
                           ],
                         ),
+
                         const SizedBox(height: 24),
+
                         SizedBox(
                           width: double.infinity,
                           height: 48,
@@ -210,6 +211,26 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                   ),
                 ),
+
+                const SizedBox(height: 30),
+
+                // ---------------------------------------------------
+                // CREATED BY DIGIATTEND (TAMBAHAN)
+                // ---------------------------------------------------
+                Opacity(
+                  opacity: 0.75,
+                  child: Text(
+                    "Created by Geril Valdo",
+                    style: TextStyle(
+                      color: Colors.black.withValues(alpha: 0.9),
+                      fontSize: 12,
+                      letterSpacing: 0.4,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 10),
               ],
             ),
           ),
@@ -218,8 +239,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  // ---- FIELD HELPERS -----
-
+  // HELPERS
   InputDecoration _decoration() {
     return InputDecoration(
       filled: true,
@@ -331,7 +351,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       decoration: _decoration(),
       hint: const Text("Pilih Training"),
       value: selectedTraining,
-      isExpanded: true, // <-- penting untuk menghindari overflow horizontal
+      isExpanded: true,
       icon: const Icon(Icons.arrow_drop_down),
       items: trainingList
           .map(
@@ -340,8 +360,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               child: Text(
                 e.title ?? "-",
                 maxLines: 1,
-                overflow: TextOverflow
-                    .ellipsis, // <-- potong teks yang terlalu panjang
+                overflow: TextOverflow.ellipsis,
               ),
             ),
           )
@@ -351,7 +370,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  // VALIDATORS
   String? emailValidator(String? v) {
     if (v == null || v.isEmpty) return "Email wajib diisi";
     if (!v.contains("@")) return "Format email tidak valid";

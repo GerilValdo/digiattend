@@ -1,9 +1,9 @@
 import 'dart:convert';
 
-AttendanceModel AttendanceModelFromJson(String str) =>
+AttendanceModel attendanceModelFromJson(String str) =>
     AttendanceModel.fromJson(json.decode(str));
 
-String AttendanceModelToJson(AttendanceModel data) =>
+String attendanceModelToJson(AttendanceModel data) =>
     json.encode(data.toJson());
 
 class AttendanceModel {

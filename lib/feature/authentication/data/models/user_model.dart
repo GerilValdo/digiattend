@@ -6,6 +6,7 @@ class UserModel {
   final String? profilePhoto;
   final int batchId;
   final int trainingId;
+  final String? batchKe; 
 
   UserModel({
     required this.id,
@@ -15,6 +16,7 @@ class UserModel {
     required this.profilePhoto,
     required this.batchId,
     required this.trainingId,
+    this.batchKe, 
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
@@ -26,10 +28,10 @@ class UserModel {
       profilePhoto: json["profile_photo"],
       batchId: int.parse(json["batch_id"].toString()),
       trainingId: int.parse(json["training_id"].toString()),
+      batchKe: json["batch_ke"]?.toString(), 
     );
   }
 
-  /// ========================= COPYWITH =========================
   UserModel copyWith({
     int? id,
     String? name,
@@ -38,6 +40,7 @@ class UserModel {
     String? profilePhoto,
     int? batchId,
     int? trainingId,
+    String? batchKe, 
   }) {
     return UserModel(
       id: id ?? this.id,
@@ -47,10 +50,10 @@ class UserModel {
       profilePhoto: profilePhoto ?? this.profilePhoto,
       batchId: batchId ?? this.batchId,
       trainingId: trainingId ?? this.trainingId,
+      batchKe: batchKe ?? this.batchKe, 
     );
   }
 
-  /// ========================= TO JSON =========================
   Map<String, dynamic> toJson() {
     return {
       "id": id,
@@ -60,6 +63,7 @@ class UserModel {
       "profile_photo": profilePhoto,
       "batch_id": batchId.toString(),
       "training_id": trainingId.toString(),
+      "batch_ke": batchKe, 
     };
   }
 }

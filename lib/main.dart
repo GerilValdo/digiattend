@@ -1,8 +1,7 @@
 // import 'package:digiattend/core/constants/app_color.dart';
-import 'package:digiattend/feature/authentication/presentation/screen/login_screen.dart';
+import 'package:digiattend/feature/authentication/presentation/screen/splash_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
-// import 'package:google_fonts/google_fonts.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -18,14 +17,11 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      debugShowCheckedModeBanner: false,
       title: 'Digiattend',
-      theme: ThemeData(
-        // scaffoldBackgroundColor: AppColor.darkBlue,
-        useMaterial3: true,
-        // textTheme: GoogleFonts.interTextTheme(),
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-      ),
-      home: LoginScreen(),
+      theme: ThemeData.light(useMaterial3: true),
+      darkTheme: ThemeData.dark(useMaterial3: true),
+      home: SplashScreen(),
     );
   }
 }

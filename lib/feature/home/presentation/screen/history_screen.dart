@@ -1,7 +1,6 @@
 import 'package:digiattend/core/constants/app_color.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:intl/date_symbol_data_local.dart';
 import 'package:digiattend/feature/authentication/data/models/attendance_model.dart';
 import 'package:digiattend/feature/authentication/data/service/attendance_api.dart';
 
@@ -14,14 +13,12 @@ class HistoryScreen extends StatefulWidget {
 
 class _HistoryScreenState extends State<HistoryScreen> {
   bool loading = true;
-  bool refreshing = false;
-  String? error;
-
-  List<AttendanceData> allHistory = [];
-  List<AttendanceData> filtered = [];
+  List<AttendanceData> history = [];
 
   int selectedMonth = DateTime.now().month;
   int selectedYear = DateTime.now().year;
+
+  AttendanceData? selectedDayData;
 
   final monthsID = const [
     "Jan",
@@ -38,367 +35,256 @@ class _HistoryScreenState extends State<HistoryScreen> {
     "Des",
   ];
 
-  List<int> yearOptions = [];
-
   @override
   void initState() {
     super.initState();
-    _boot();
+    loadHistory();
   }
 
-  Future<void> _boot() async {
-    await initializeDateFormatting('id_ID', null);
-    await loadHistory();
-  }
+  Future loadHistory() async {
+    setState(() => loading = true);
 
-  Future<void> loadHistory() async {
+    final list = await AttendanceAPI.getHistory();
     setState(() {
-      loading = true;
-      error = null;
-    });
-
-    try {
-      final list = await AttendanceAPI.getHistory();
-      allHistory = list;
-
-      // ---- BUILT-IN UX: Always show 3-year range ----
-      final currentYear = DateTime.now().year;
-      final defaultYears = {currentYear - 1, currentYear, currentYear + 1};
-
-      // ---- Add years from API if exist ----
-      final apiYears = list
-          .where(
-            (e) => e.attendanceDate != null && e.attendanceDate!.isNotEmpty,
-          )
-          .map((e) => DateTime.parse(e.attendanceDate!).year)
-          .toSet();
-
-      // ---- Combine & Sort ----
-      final result = {...defaultYears, ...apiYears}.toList();
-      result.sort();
-
-      yearOptions = result;
-
-      // Auto correct selectedYear if outside range
-      if (!yearOptions.contains(selectedYear)) {
-        selectedYear = currentYear;
-      }
-
-      applyFilter();
-    } catch (e) {
-      error = e.toString();
-      filtered = [];
-    }
-
-    setState(() => loading = false);
-  }
-
-  void applyFilter() {
-    filtered = allHistory.where((item) {
-      if (item.attendanceDate == null || item.attendanceDate!.isEmpty)
-        return false;
-
-      final dt = DateTime.parse(item.attendanceDate!);
-      return dt.month == selectedMonth && dt.year == selectedYear;
-    }).toList();
-
-    filtered.sort((a, b) {
-      final da = DateTime.parse(a.attendanceDate!);
-      final db = DateTime.parse(b.attendanceDate!);
-      return db.compareTo(da);
+      history = list;
+      loading = false;
     });
   }
 
-  Future<void> _onRefresh() async {
-    setState(() => refreshing = true);
-    await loadHistory();
-    setState(() => refreshing = false);
-  }
-
-  String dayName(DateTime d) {
-    try {
-      return DateFormat.EEEE('id_ID').format(d);
-    } catch (_) {
-      return DateFormat.EEEE().format(d);
+  Color getStatusColor(String? status) {
+    switch (status?.toLowerCase()) {
+      case "masuk":
+        return Colors.green;
+      case "izin":
+        return Colors.orange;
+      case "alfa":
+        return Colors.red;
+      case "keluar":
+        return Colors.blue;
+      default:
+        return Colors.grey.shade400;
     }
   }
 
-  String prettyDate(DateTime d) {
+  AttendanceData? getDataForDate(DateTime date) {
+    final s = DateFormat("yyyy-MM-dd").format(date);
     try {
-      return DateFormat("dd MMM yyyy", 'id_ID').format(d);
+      return history.firstWhere((e) => e.attendanceDate == s);
     } catch (_) {
-      return DateFormat("dd MMM yyyy").format(d);
+      return null;
     }
+  }
+
+  List<Widget> buildCalendar() {
+    List<Widget> cells = [];
+
+    final firstDay = DateTime(selectedYear, selectedMonth, 1);
+    final lastDay = DateTime(selectedYear, selectedMonth + 1, 0);
+
+    final weekdayOffset = firstDay.weekday == 7 ? 0 : firstDay.weekday;
+
+    // Tambahkan sel kosong untuk offset
+    for (int i = 0; i < weekdayOffset; i++) {
+      cells.add(Container());
+    }
+
+    // Generate tanggal
+    for (int day = 1; day <= lastDay.day; day++) {
+      final date = DateTime(selectedYear, selectedMonth, day);
+      final data = getDataForDate(date);
+
+      final isSelected =
+          selectedDayData?.attendanceDate ==
+          DateFormat("yyyy-MM-dd").format(date);
+
+      final Color bgColor = data == null
+          ? Colors.white
+          : getStatusColor(data.status).withOpacity(isSelected ? 0.85 : 0.60);
+
+      final Color textColor = data == null ? AppColor.textColor : Colors.white;
+
+      cells.add(
+        GestureDetector(
+          onTap: () {
+            setState(() => selectedDayData = data);
+          },
+          child: Container(
+            decoration: BoxDecoration(
+              color: bgColor,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: isSelected ? Colors.black87 : Colors.grey.shade300,
+                width: isSelected ? 2 : 1,
+              ),
+            ),
+            child: Center(
+              child: Text(
+                "$day",
+                style: TextStyle(
+                  color: textColor,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return cells;
   }
 
   @override
   Widget build(BuildContext context) {
-    final vw = MediaQuery.of(context).size.width;
-    final vh = MediaQuery.of(context).size.height;
+    if (loading) {
+      return const Scaffold(
+        backgroundColor: AppColor.background,
+        body: Center(child: CircularProgressIndicator(color: AppColor.primary)),
+      );
+    }
 
     return Scaffold(
       backgroundColor: AppColor.background,
       body: SafeArea(
         child: Padding(
-          padding: EdgeInsets.symmetric(
-            horizontal: vw * 0.06,
-            vertical: vh * 0.03,
-          ),
+          padding: const EdgeInsets.all(18),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // TITLE
-              Text(
-                "Attendance History",
+              const Text(
+                "Attendance Calendar",
                 style: TextStyle(
-                  color: AppColor.textColor,
-                  fontWeight: FontWeight.bold,
                   fontSize: 22,
-                ),
-              ),
-
-              const SizedBox(height: 14),
-
-              // YEAR FILTER ===============================
-              SizedBox(
-                height: 44,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: yearOptions.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 8),
-                  itemBuilder: (context, i) {
-                    final y = yearOptions[i];
-                    final sel = y == selectedYear;
-
-                    return ChoiceChip(
-                      label: Text(
-                        "$y",
-                        style: TextStyle(
-                          color: sel ? Colors.white : AppColor.textColor,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      selected: sel,
-                      selectedColor: AppColor.primary,
-                      backgroundColor: AppColor.primaryLight,
-                      onSelected: (_) {
-                        setState(() {
-                          selectedYear = y;
-                          applyFilter();
-                        });
-                      },
-                    );
-                  },
-                ),
-              ),
-
-              const SizedBox(height: 12),
-
-              // MONTH FILTER ===============================
-              SizedBox(
-                height: 44,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: monthsID.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 10),
-                  itemBuilder: (_, i) {
-                    final m = i + 1;
-                    final sel = m == selectedMonth;
-
-                    return GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          selectedMonth = m;
-                          applyFilter();
-                        });
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: sel ? AppColor.primary : AppColor.primaryLight,
-                          borderRadius: BorderRadius.circular(24),
-                        ),
-                        child: Text(
-                          monthsID[i],
-                          style: TextStyle(
-                            color: sel ? Colors.white : AppColor.textColor,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    );
-                  },
+                  fontWeight: FontWeight.bold,
+                  color: AppColor.textColor,
                 ),
               ),
 
               const SizedBox(height: 20),
 
-              // CONTENT LIST =============================================
+              // MONTH + YEAR PICKER
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  DropdownButton<int>(
+                    value: selectedMonth,
+                    items: List.generate(
+                      12,
+                      (i) => DropdownMenuItem(
+                        value: i + 1,
+                        child: Text(monthsID[i]),
+                      ),
+                    ),
+                    onChanged: (v) => setState(() => selectedMonth = v!),
+                  ),
+                  DropdownButton<int>(
+                    value: selectedYear,
+                    items: List.generate(
+                      5,
+                      (i) => DropdownMenuItem(
+                        value: DateTime.now().year - 2 + i,
+                        child: Text("${DateTime.now().year - 2 + i}"),
+                      ),
+                    ),
+                    onChanged: (v) => setState(() => selectedYear = v!),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 20),
+
+              // DAYS HEADER
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: const [
+                  Text("Min"),
+                  Text("Sen"),
+                  Text("Sel"),
+                  Text("Rab"),
+                  Text("Kam"),
+                  Text("Jum"),
+                  Text("Sab"),
+                ],
+              ),
+
+              const SizedBox(height: 10),
+
+              // CALENDAR GRID
               Expanded(
-                child: RefreshIndicator(
-                  onRefresh: _onRefresh,
-                  color: Colors.white,
-                  backgroundColor: AppColor.primary,
-                  child: buildContent(vh),
+                child: GridView.count(
+                  crossAxisCount: 7,
+                  crossAxisSpacing: 6,
+                  mainAxisSpacing: 6,
+                  children: buildCalendar(),
                 ),
               ),
+
+              const SizedBox(height: 10),
+
+              // DETAIL SECTION
+              if (selectedDayData != null)
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppColor.card,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColor.border),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        selectedDayData!.attendanceDate!,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          color: AppColor.textColor,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+
+                      if (selectedDayData!.status == "izin")
+                        Text(
+                          "Status : Izin\nAlasan : ${selectedDayData!.alasanIzin}",
+                          style: const TextStyle(color: AppColor.textColor),
+                        )
+                      else
+                        Text(
+                          "Check-in  : ${selectedDayData!.checkInTime ?? '-'}\n"
+                          "Check-out : ${selectedDayData!.checkOutTime ?? '-'}\n"
+                          "Status    : ${selectedDayData!.status ?? '-'}",
+                          style: const TextStyle(color: AppColor.textColor),
+                        ),
+                    ],
+                  ),
+                ),
+
+              const SizedBox(height: 18),
+
+              // ----------------------------------------------------
+              // CREATED BY DIGIATTEND
+              // ----------------------------------------------------
+              Center(
+                child: Opacity(
+                  opacity: 0.7,
+                  child: Text(
+                    "Created by Geril Valdo",
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColor.subtitleText,
+                      fontWeight: FontWeight.w500,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 12),
             ],
           ),
         ),
       ),
-    );
-  }
-
-  Widget buildContent(double vh) {
-    if (loading) {
-      return ListView(
-        children: const [
-          SizedBox(height: 200),
-          Center(child: CircularProgressIndicator(color: AppColor.primary)),
-        ],
-      );
-    }
-
-    if (filtered.isEmpty) {
-      return ListView(
-        children: [
-          SizedBox(height: vh * 0.12),
-          Column(
-            children: [
-              Icon(
-                Icons.calendar_today,
-                size: 70,
-                color: AppColor.subtitleText,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                "Tidak ada data untuk bulan ini",
-                style: TextStyle(
-                  color: AppColor.subtitleText,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-        ],
-      );
-    }
-
-    // LIST
-    return ListView.separated(
-      itemCount: filtered.length,
-      separatorBuilder: (_, __) => SizedBox(height: vh * 0.018),
-      itemBuilder: (_, i) {
-        final item = filtered[i];
-        final dt = DateTime.parse(item.attendanceDate!);
-
-        final status = (item.status ?? "").toLowerCase();
-
-        Color color;
-        IconData icon;
-
-        switch (status) {
-          case "masuk":
-            color = AppColor.success;
-            icon = Icons.login;
-            break;
-          case "keluar":
-            color = AppColor.info;
-            icon = Icons.logout;
-            break;
-          case "izin":
-            color = AppColor.warning;
-            icon = Icons.event_busy;
-            break;
-          default:
-            color = AppColor.subtitleText;
-            icon = Icons.help_outline;
-        }
-
-        return Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: AppColor.card,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColor.border),
-          ),
-          child: Row(
-            children: [
-              // Badge
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: color.withOpacity(.12),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(icon, color: color, size: 24),
-              ),
-
-              const SizedBox(width: 14),
-
-              // Date
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      dayName(dt),
-                      style: TextStyle(
-                        color: AppColor.textColor,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      prettyDate(dt),
-                      style: TextStyle(color: AppColor.subtitleText),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Status + time
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: color.withOpacity(.12),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      status.toUpperCase(),
-                      style: TextStyle(
-                        color: color,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    status == "izin"
-                        ? (item.alasanIzin ?? "Izin")
-                        : "${item.checkInTime ?? '-'} • ${item.checkOutTime ?? '-'}",
-                    style: TextStyle(
-                      color: AppColor.textColor,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        );
-      },
     );
   }
 }
