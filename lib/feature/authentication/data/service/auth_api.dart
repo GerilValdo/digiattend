@@ -89,7 +89,7 @@ class AuthAPI {
     final current = await AuthLocalStorage.getUser();
     final url = Uri.parse(Endpoint.updateProfile);
 
-    final response = await http.post(
+    final response = await http.put(
       url,
       headers: {"Accept": "application/json", "Authorization": "Bearer $token"},
       body: {"name": name},

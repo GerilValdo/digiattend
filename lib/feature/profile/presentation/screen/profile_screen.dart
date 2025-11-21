@@ -86,6 +86,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 try {
                   final updated = await AuthAPI.updateProfileName(newName);
 
+                  // WAJIB: simpan user baru
+                  await AuthLocalStorage.updateUserModel(updated.toJson());
+
                   setState(() => user = updated);
 
                   Navigator.pop(context);
@@ -118,6 +121,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     try {
       final updated = await AuthAPI.updateProfilePhoto(base64);
+
+      await AuthLocalStorage.updateUserModel(updated.toJson());
 
       setState(() {
         user = updated;
@@ -175,6 +180,90 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   // =============================================================
+  // LOGOUT DIALOG (UI/UX MODERN)
+  // =============================================================
+  void showLogoutDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (_) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: AppColor.card,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.logout, size: 55, color: Colors.red),
+                const SizedBox(height: 12),
+                const Text(
+                  "Logout",
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: AppColor.textColor,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  "Apakah kamu yakin ingin keluar dari aplikasi?",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 14, color: AppColor.subtitleText),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(context),
+                        style: OutlinedButton.styleFrom(
+                          side: BorderSide(color: AppColor.border),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                        child: const Text(
+                          "Batal",
+                          style: TextStyle(color: AppColor.textColor),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () async {
+                          Navigator.pop(context); // tutup dialog
+                          await logout();
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                        child: const Text("Logout"),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // =============================================================
   // LOGOUT
   // =============================================================
   Future<void> logout() async {
@@ -213,7 +302,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
           padding: const EdgeInsets.all(20),
           child: Column(
             children: [
+              // =============================================================
               // AVATAR
+              // =============================================================
               GestureDetector(
                 onTap: showPhotoPicker,
                 child: Stack(
@@ -230,9 +321,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               ? Image.network(
                                   "$photoUrl?v=${DateTime.now().millisecondsSinceEpoch}",
                                   fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) {
-                                    return _avatarInitial(initials);
-                                  },
+                                  errorBuilder: (_, __, ___) =>
+                                      _avatarInitial(initials),
                                 )
                               : _avatarInitial(initials),
                         ),
@@ -257,13 +347,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
               const SizedBox(height: 20),
 
-              Text(
-                user!.name,
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                ),
+              // =============================================================
+              // NAME + EDIT BUTTON
+              // =============================================================
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    user!.name,
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  InkWell(
+                    onTap: updateName,
+                    child: const Icon(
+                      Icons.edit,
+                      size: 20,
+                      color: AppColor.primary,
+                    ),
+                  ),
+                ],
               ),
+
               Text(user!.email, style: TextStyle(color: Colors.grey.shade600)),
 
               const SizedBox(height: 30),
@@ -274,10 +382,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
               const SizedBox(height: 20),
 
+              // Logout Button
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton(
-                  onPressed: logout,
+                  onPressed: showLogoutDialog,
                   child: const Text("Logout"),
                 ),
               ),
@@ -292,7 +401,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     fontSize: 12,
                     color: AppColor.subtitleText,
                     fontWeight: FontWeight.w500,
-                    letterSpacing: 0.3,
                   ),
                 ),
               ),
@@ -306,7 +414,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   // =============================================================
-  // Widgets
+  // WIDGETS
   // =============================================================
   Widget _avatarInitial(String initials) {
     return Center(

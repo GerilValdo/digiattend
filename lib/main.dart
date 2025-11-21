@@ -1,6 +1,8 @@
 // import 'package:digiattend/core/constants/app_color.dart';
 import 'package:digiattend/feature/authentication/presentation/screen/splash_screen.dart';
+import 'package:digiattend/feature/home/presentation/bloc/home_bloc.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
 void main() async {
@@ -16,12 +18,15 @@ class MyApp extends StatelessWidget {
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'Digiattend',
-      theme: ThemeData.light(useMaterial3: true),
-      darkTheme: ThemeData.dark(useMaterial3: true),
-      home: SplashScreen(),
+    return BlocProvider(
+      create: (context) => HomeBloc(),
+      child: MaterialApp(
+        debugShowCheckedModeBanner: false,
+        title: 'Digiattend',
+        theme: ThemeData.light(useMaterial3: true),
+        darkTheme: ThemeData.dark(useMaterial3: true),
+        home: SplashScreen(),
+      ),
     );
   }
 }
